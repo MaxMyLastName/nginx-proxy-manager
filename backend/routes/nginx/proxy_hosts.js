@@ -206,4 +206,43 @@ router
 		}
 	});
 
+/**
+ * Logs for a proxy-host
+ *
+ * /api/nginx/proxy-hosts/123/logs
+ */
+router
+	.route("/:host_id/logs")
+	.options((_, res) => {
+		res.sendStatus(204);
+	})
+	.all(jwtdecode())
+
+	/**
+	 * GET /api/nginx/proxy-hosts/123/logs
+	 */
+	.get(async (req, res, next) => {
+		try {
+			const data = await validator(
+				{
+					required: ["host_id"],
+					additionalProperties: false,
+					properties: {
+						host_id: {
+							$ref: "common#/properties/id",
+						},
+					},
+				},
+				{ host_id: req.params.host_id },
+			);
+			const result = await internalProxyHost.getLogs(res.locals.access, {
+				id: Number.parseInt(data.host_id, 10),
+			});
+			res.status(200).send(result);
+		} catch (err) {
+			debug(logger, `${req.method.toUpperCase()} ${req.path}: ${err}`);
+			next(err);
+		}
+	});
+
 export default router;

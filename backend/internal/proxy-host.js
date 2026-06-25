@@ -1,3 +1,4 @@
+import { closeSync, existsSync, fstatSync, openSync, readSync } from "node:fs";
 import _ from "lodash";
 import errs from "../lib/error.js";
 import { castJsonIfNeed } from "../lib/helpers.js";
@@ -7,6 +8,34 @@ import internalAuditLog from "./audit-log.js";
 import internalCertificate from "./certificate.js";
 import internalHost from "./host.js";
 import internalNginx from "./nginx.js";
+
+const LOG_TAIL_LINES = 200;
+const LOG_CHUNK_BYTES = 100 * 1024; // read last 100 KB to find 200 lines
+
+const tailFile = (filePath) => {
+	if (!existsSync(filePath)) {
+		return [];
+	}
+	const fd = openSync(filePath, "r");
+	const { size } = fstatSync(fd);
+	if (size === 0) {
+		closeSync(fd);
+		return [];
+	}
+	const chunkSize = Math.min(size, LOG_CHUNK_BYTES);
+	const buffer = Buffer.alloc(chunkSize);
+	readSync(fd, buffer, 0, chunkSize, size - chunkSize);
+	closeSync(fd);
+	let content = buffer.toString("utf8");
+	if (size > chunkSize) {
+		const firstNewline = content.indexOf("\n");
+		if (firstNewline !== -1) {
+			content = content.substring(firstNewline + 1);
+		}
+	}
+	const lines = content.split("\n").filter((l) => l.length > 0);
+	return lines.slice(-LOG_TAIL_LINES);
+};
 
 const omissions = () => {
 	return ["is_deleted", "owner.is_deleted"];
@@ -468,6 +497,24 @@ const internalProxyHost = {
 		return query.first().then((row) => {
 			return Number.parseInt(row.count, 10);
 		});
+	},
+
+	/**
+	 * @param  {Access}  access
+	 * @param  {Object}  data
+	 * @param  {Number}  data.id
+	 * @returns {Promise}
+	 */
+	getLogs: async (access, data) => {
+		await access.can("proxy_hosts:logs", data.id);
+		await internalProxyHost.get(access, { id: data.id });
+
+		const [accessLines, errorLines] = await Promise.all([
+			Promise.resolve(tailFile(`/data/logs/proxy-host-${data.id}_access.log`)),
+			Promise.resolve(tailFile(`/data/logs/proxy-host-${data.id}_error.log`)),
+		]);
+
+		return { access: accessLines, error: errorLines };
 	},
 };
 
