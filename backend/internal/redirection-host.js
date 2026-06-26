@@ -1,3 +1,4 @@
+import { closeSync, existsSync, fstatSync, openSync, readSync } from "node:fs";
 import _ from "lodash";
 import errs from "../lib/error.js";
 import { castJsonIfNeed } from "../lib/helpers.js";
@@ -7,6 +8,26 @@ import internalAuditLog from "./audit-log.js";
 import internalCertificate from "./certificate.js";
 import internalHost from "./host.js";
 import internalNginx from "./nginx.js";
+
+const LOG_TAIL_LINES = 200;
+const LOG_CHUNK_BYTES = 100 * 1024;
+
+const tailFile = (filePath) => {
+	if (!existsSync(filePath)) return [];
+	const fd = openSync(filePath, "r");
+	const { size } = fstatSync(fd);
+	if (size === 0) { closeSync(fd); return []; }
+	const chunkSize = Math.min(size, LOG_CHUNK_BYTES);
+	const buffer = Buffer.alloc(chunkSize);
+	readSync(fd, buffer, 0, chunkSize, size - chunkSize);
+	closeSync(fd);
+	let content = buffer.toString("utf8");
+	if (size > chunkSize) {
+		const firstNewline = content.indexOf("\n");
+		if (firstNewline !== -1) content = content.substring(firstNewline + 1);
+	}
+	return content.split("\n").filter((l) => l.length > 0).slice(-LOG_TAIL_LINES);
+};
 
 const omissions = () => {
 	return ["is_deleted"];
@@ -471,6 +492,15 @@ const internalRedirectionHost = {
 		return query.first().then((row) => {
 			return Number.parseInt(row.count, 10);
 		});
+	},
+
+	getLogs: async (access, data) => {
+		await access.can("redirection_hosts:logs", data.id);
+		await internalRedirectionHost.get(access, { id: data.id });
+		return {
+			access: tailFile(`/data/logs/redirection-host-${data.id}_access.log`),
+			error: tailFile(`/data/logs/redirection-host-${data.id}_error.log`),
+		};
 	},
 };
 

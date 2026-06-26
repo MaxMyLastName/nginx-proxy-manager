@@ -1,4 +1,4 @@
-import { IconDotsVertical, IconEdit, IconPower, IconTrash } from "@tabler/icons-react";
+import { IconDotsVertical, IconEdit, IconFileText, IconPower, IconTrash } from "@tabler/icons-react";
 import {
 	createColumnHelper,
 	getCoreRowModel,
@@ -27,9 +27,10 @@ interface Props {
 	onEdit?: (id: number) => void;
 	onDelete?: (id: number) => void;
 	onDisableToggle?: (id: number, enabled: boolean) => void;
+	onViewLogs?: (id: number, label: string) => void;
 	onNew?: () => void;
 }
-export default function Table({ data, isFetching, isFiltered, onEdit, onDelete, onDisableToggle, onNew }: Props) {
+export default function Table({ data, isFetching, isFiltered, onEdit, onDelete, onDisableToggle, onViewLogs, onNew }: Props) {
 	const columnHelper = createColumnHelper<Stream>();
 	const columns = useMemo(
 		() => [
@@ -135,6 +136,17 @@ export default function Table({ data, isFetching, isFiltered, onEdit, onDelete, 
 									<IconEdit size={16} />
 									<T id="action.edit" />
 								</a>
+								<a
+									className="dropdown-item"
+									href="#"
+									onClick={(e) => {
+										e.preventDefault();
+										onViewLogs?.(info.row.original.id, `Port ${info.row.original.incomingPort}`);
+									}}
+								>
+									<IconFileText size={16} />
+									<T id="action.view-logs" />
+								</a>
 								<HasPermission section={STREAMS} permission={MANAGE} hideError>
 									<a
 										className="dropdown-item"
@@ -169,7 +181,7 @@ export default function Table({ data, isFetching, isFiltered, onEdit, onDelete, 
 				},
 			}),
 		],
-		[columnHelper, onEdit, onDisableToggle, onDelete],
+		[columnHelper, onEdit, onDisableToggle, onDelete, onViewLogs],
 	);
 
 	const [sorting, setSorting] = useState<SortingState>([]);
