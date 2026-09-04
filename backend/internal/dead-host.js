@@ -30,7 +30,7 @@ const tailFile = (filePath) => {
 };
 
 const omissions = () => {
-	return ["is_deleted"];
+	return ["is_deleted", "owner.is_deleted"];
 };
 
 const internalDeadHost = {

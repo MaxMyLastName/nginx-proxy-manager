@@ -1,0 +1,24 @@
+{
+	"type": "object",
+	"description": "Host log preview, most recent lines last",
+	"properties": {
+		"access": {
+			"type": "array",
+			"description": "Recent lines from the access log",
+			"items": {
+				"type": "string"
+			},
+			"example": [
+				"127.0.0.1 - - [30/Oct/2025:01:12:05 +0000] \"GET / HTTP/1.1\" 200 612"
+			]
+		},
+		"error": {
+			"type": "array",
+			"description": "Recent lines from the error log",
+			"items": {
+				"type": "string"
+			},
+			"example": []
+		}
+	}
+}
